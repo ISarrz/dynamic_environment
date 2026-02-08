@@ -1,77 +1,71 @@
 #include "Astar.h"
 
 #include <algorithm>
+#include <limits>
 
+#include <queue>
+#include <vector>
 
-AstarNode::AstarNode() {
-    x = -1;
-    y = -1;
-    g = -1;
-    h = -1;
-    f = -1;
-    parent = nullptr;
-}
+struct Node {
+    int x, y;
+    int f, g;
 
-bool AstarNode::operator<(const AstarNode &other) const {
-    return std::make_tuple(f, g, x, y) <
-           std::make_tuple(other.f, other.g, other.x, other.y);
-}
+    bool operator>(const Node& other) const {
+        return f > other.f;
+    }
+};
 
-std::optional<Result>
-Astar(const std::pair<int, int> &start_pos, const std::pair<int, int> &goal_pos,
-      Field &field,
-      const std::function<int(std::pair<int, int>, std::pair<int, int>)>
-              &heuristic_function) {
+std::optional<Result> Astar(
+    const std::pair<int, int>& start_pos,
+    const std::pair<int, int>& goal_pos,
+    Field& field,
+    const std::function<int(std::pair<int, int>, std::pair<int, int>)>& heuristic_function) {
 
-    std::set<AstarNode> open;
-    std::map<std::pair<int, int>, AstarNode> visited;
+    int width = field.GetWidth();
+    int height = field.GetHeight();
 
-    const AstarNode start(start_pos.first, start_pos.second, 0,
-                     heuristic_function(start_pos, goal_pos));
+    std::vector<int> g_score(width * height, std::numeric_limits<int>::max());
+    std::vector<int> parent_idx(width * height, -1);
 
-    visited[start_pos] = start;
-    open.insert(visited[start_pos]);
+    std::priority_queue<Node, std::vector<Node>, std::greater<Node>> open_set;
+
+    int start_idx = start_pos.second * width + start_pos.first;
+    g_score[start_idx] = 0;
+    open_set.push({start_pos.first, start_pos.second, heuristic_function(start_pos, goal_pos), 0});
 
     size_t steps = 0;
-    while (!open.empty()) {
-        AstarNode current_val = *open.begin();
-        open.erase(open.begin());
+    size_t visited_count = 0;
 
-        AstarNode *current_ptr = &visited[{current_val.x, current_val.y}];
+    while (!open_set.empty()) {
+        Node current = open_set.top();
+        open_set.pop();
 
-        if (current_ptr->x == goal_pos.first &&
-            current_ptr->y == goal_pos.second) {
+        int curr_idx = current.y * width + current.x;
+
+        if (current.g > g_score[curr_idx]) continue;
+
+        visited_count++;
+
+        if (current.x == goal_pos.first && current.y == goal_pos.second) {
             std::vector<std::pair<int, int>> path;
-            AstarNode *path_ptr = current_ptr;
-
-            while (path_ptr->parent) {
-                path.emplace_back(path_ptr->x, path_ptr->y);
-                path_ptr = path_ptr->parent;
+            int p = curr_idx;
+            while (p != -1) {
+                path.push_back({p % width, p / width});
+                p = parent_idx[p];
             }
-
-            const size_t tree_size = visited.size();
             std::reverse(path.begin(), path.end());
-
-            return Result(path, steps, tree_size);
+            return Result(path, steps, visited_count);
         }
 
-        for (auto [i, j] :
-             field.GetNeighbours(current_ptr->x, current_ptr->y)) {
+        for (auto [nx, ny] : field.GetNeighbours(current.x, current.y)) {
+            int next_idx = ny * width + nx;
+            int tentative_g = current.g + 1;
 
-            const float new_g = current_ptr->g + 1;
-            const std::pair<int, int> next_pos = {i, j};
-
-            if (visited.find(next_pos) == visited.end() ||
-                new_g < visited[next_pos].g) {
-                if (visited.count(next_pos)) {
-                    open.erase(visited[next_pos]);
-                }
-
-                AstarNode next_node(i, j, new_g,
-                               heuristic_function({i, j}, goal_pos),
-                               current_ptr);
-                visited[next_pos] = next_node;
-                open.insert(visited[next_pos]);
+            if (tentative_g < g_score[next_idx]) {
+                parent_idx[next_idx] = curr_idx;
+                g_score[next_idx] = tentative_g;
+                int h = heuristic_function({nx, ny}, goal_pos);
+                open_set.push({nx, ny, tentative_g + h, tentative_g});
             }
         }
         steps++;
@@ -79,3 +73,4 @@ Astar(const std::pair<int, int> &start_pos, const std::pair<int, int> &goal_pos,
 
     return std::nullopt;
 }
+
