@@ -1,10 +1,14 @@
 #include "Field.h"
 #include <fstream>
+#include <stdexcept>
 #include <sstream>
 
 Field::Field(const std::string &file_name) {
     field_data_.clear();
     std::ifstream file(file_name);
+    if (!file.is_open()) {
+        throw std::runtime_error("Cannot open map file: " + file_name);
+    }
 
     std::string line;
     while (getline(file, line)) {
@@ -20,22 +24,41 @@ Field::Field(const std::string &file_name) {
             field_data_.push_back(row);
         }
     }
+
+    if (field_data_.empty()) {
+        throw std::runtime_error("Map file is empty or invalid: " + file_name);
+    }
+
+    const size_t expected_width = field_data_.front().size();
+    for (const auto &row : field_data_) {
+        if (row.size() != expected_width) {
+            throw std::runtime_error("Map rows have inconsistent widths in: " +
+                                     file_name);
+        }
+    }
+
     height = field_data_.size();
-    width = field_data_[0].size();
+    width = expected_width;
 
     file.close();
 }
 
 char Field::Get(const size_t x, const size_t y) const {
+    if (x >= height || y >= width) {
+        throw std::out_of_range("Field::Get coordinates are out of bounds");
+    }
     return field_data_[x][y];
 }
 void Field::Set(const size_t x, const size_t y, const char value) {
+    if (x >= height || y >= width) {
+        throw std::out_of_range("Field::Set coordinates are out of bounds");
+    }
     field_data_[x][y] = value;
 }
 
 bool Field::IsValid(const int x, const int y) const {
-    if (x < 0 || y < 0 || x >= field_data_.size() ||
-        y >= field_data_[0].size()) {
+    if (x < 0 || y < 0 || x >= static_cast<int>(height) ||
+        y >= static_cast<int>(width)) {
         return false;
     }
     if (Get(x, y) != '.') {

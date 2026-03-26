@@ -5,6 +5,7 @@
 #include <limits>
 #include <optional>
 #include <set>
+#include <tuple>
 #include <vector>
 using Key = std::pair<float, float>;
 using Coordinates = std::pair<int, int>;
@@ -43,6 +44,7 @@ class DstarLite {
     std::optional<Coordinates> GetNextNode();
     void MoveStart(Coordinates new_pos);
     void UpdateObstacle(Coordinates pos, char value);
+    void UpdateObstacles(const std::vector<std::pair<Coordinates, char>> &updates);
 
   private:
     float km = 0;

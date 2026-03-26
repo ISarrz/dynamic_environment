@@ -1,7 +1,7 @@
 #pragma once
+#include <iostream>
 #include <string>
 #include <vector>
-#include <iostream>
 
 class Field {
   public:
@@ -23,7 +23,7 @@ class Field {
     size_t GetWidth() const;
     size_t GetHeight() const;
   private:
-    size_t width;
-    size_t height;
+    size_t width = 0;
+    size_t height = 0;
     std::vector<std::vector<char>> field_data_;
 };

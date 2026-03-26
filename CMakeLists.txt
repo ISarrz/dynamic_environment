@@ -4,13 +4,27 @@ project(dynamic_environment)
 set(CMAKE_CXX_STANDARD 20)
 
 add_executable(dynamic_environment main.cpp
-        Field.cpp
-        Field.h
-        heuristic_functions.cpp
-        heuristic_functions.h
-        Astar.cpp
-        Astar.h
-        DynamicObstacle.cpp
-        DynamicObstacle.h
-        DstarLite.cpp
-        DstarLite.h)
+        CliUtils.cpp
+        CliUtils.h
+        test_generation/Generators.cpp
+        test_generation/Generators.h
+        tests/StaticTests.cpp
+        tests/StaticTests.h
+        tests/DynamicTests.cpp
+        tests/DynamicTests.h
+        global_planning/Field.cpp
+        global_planning/Field.h
+        global_planning/heuristic_functions.cpp
+        global_planning/heuristic_functions.h
+        global_planning/Astar.cpp
+        global_planning/Astar.h
+        global_planning/DstarLite.cpp
+        global_planning/DstarLite.h
+        test_generation/TestGeneration.cpp
+        test_generation/TestGeneration.h)
+
+target_include_directories(dynamic_environment PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/global_planning
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests
+        ${CMAKE_CURRENT_SOURCE_DIR}/test_generation)

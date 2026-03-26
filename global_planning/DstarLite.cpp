@@ -1,5 +1,8 @@
 #include "DstarLite.h"
 
+#include <array>
+#include <unordered_set>
+
 DstarNode::DstarNode(int x, int y) : x(x), y(y) {
     g = std::numeric_limits<float>::infinity();
     rhs = std::numeric_limits<float>::infinity();
@@ -60,7 +63,6 @@ void DstarLite::UpdateVertex(DstarNode *node) {
 
 void DstarLite::ComputeShortestPath() {
     DstarNode *start_node = &grid_[start_pos_.first][start_pos_.second];
-    DstarNode *goal_node = &grid_[goal_pos_.first][goal_pos_.second];
 
     while (!open_.empty() && (open_.begin()->first < CalculateKey(start_node) ||
                               start_node->rhs != start_node->g)) {
@@ -120,23 +122,48 @@ void DstarLite::MoveStart(Coordinates new_pos) {
 }
 
 void DstarLite::UpdateObstacle(Coordinates pos, char value) {
-    field_ptr_->Set(pos.first, pos.second, value);
+    UpdateObstacles({{{pos, value}}});
+}
 
-    std::vector<Coordinates> affected_nodes;
-    affected_nodes.push_back(pos);
-
-    std::vector<std::pair<int, int>> deltas = {{1, 0}, {0, 1}, {-1, 0}, {0, -1}};
-    for (auto [dx, dy] : deltas) {
-        int nx = pos.first + dx;
-        int ny = pos.second + dy;
-
-        if (nx >= 0 && nx < field_ptr_->GetHeight() &&
-            ny >= 0 && ny < field_ptr_->GetWidth()) {
-            affected_nodes.push_back({nx, ny});
-            }
+void DstarLite::UpdateObstacles(
+    const std::vector<std::pair<Coordinates, char>> &updates) {
+    if (updates.empty()) {
+        return;
     }
 
-    for (auto& node_pos : affected_nodes) {
+    const int height = static_cast<int>(field_ptr_->GetHeight());
+    const int width = static_cast<int>(field_ptr_->GetWidth());
+    std::unordered_set<int> marked;
+    marked.reserve(updates.size() * 5);
+    std::vector<Coordinates> affected_nodes;
+    affected_nodes.reserve(updates.size() * 5);
+
+    const std::array<Coordinates, 5> deltas = {
+        Coordinates{0, 0}, Coordinates{1, 0}, Coordinates{0, 1},
+        Coordinates{-1, 0}, Coordinates{0, -1}};
+
+    for (const auto &[pos, value] : updates) {
+        if (field_ptr_->Get(pos.first, pos.second) == value) {
+            continue;
+        }
+
+        field_ptr_->Set(pos.first, pos.second, value);
+
+        for (const auto &[dx, dy] : deltas) {
+            const int nx = pos.first + dx;
+            const int ny = pos.second + dy;
+            if (nx < 0 || nx >= height || ny < 0 || ny >= width) {
+                continue;
+            }
+
+            const int flat = nx * width + ny;
+            if (marked.insert(flat).second) {
+                affected_nodes.push_back({nx, ny});
+            }
+        }
+    }
+
+    for (const auto &node_pos : affected_nodes) {
         UpdateVertex(&grid_[node_pos.first][node_pos.second]);
     }
 }
