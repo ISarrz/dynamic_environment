@@ -95,7 +95,7 @@ PathRunResult TestDynamicAstar(Field field, int x1, int y1, int x2, int y2,
         if (change_step < static_cast<int>(changes.size())) {
             for (const auto &change : changes[change_step]) {
                 field.Set(change.first.first, change.first.second, '.');
-                field.Set(change.second.first, change.second.second, '#');
+                field.Set(change.second.first, change.second.second, 'D');
             }
             ++change_step;
         }
@@ -129,7 +129,7 @@ PathRunResult TestDynamicDstarLite(Field field, int x1, int y1, int x2, int y2,
             updates.reserve(changes[change_step].size() * 2);
             for (const auto &change : changes[change_step]) {
                 updates.push_back({change.first, '.'});
-                updates.push_back({change.second, '#'});
+                updates.push_back({change.second, 'D'});
             }
             if (!updates.empty()) {
                 dstar_lite.UpdateObstacles(updates);

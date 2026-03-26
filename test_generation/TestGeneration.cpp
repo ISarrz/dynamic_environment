@@ -123,7 +123,7 @@ void GetDynamicChanges(const int steps, const int objects_per_step) {
                 int x = dist_rows(gen);
                 int y = dist_cols(gen);
 
-                if (field.Get(x, y) == '.') {
+                if (field.Get(x, y) != 'D') {
                     continue;
                 }
                 if (used_from.count({x, y}) > 0) {
@@ -161,7 +161,7 @@ void GetDynamicChanges(const int steps, const int objects_per_step) {
             used_from.insert(change.first);
             used_to.insert(change.second);
             field.Set(x, y, '.');
-            field.Set(dx, dy, '#');
+            field.Set(dx, dy, 'D');
             step_changes.push_back(change);
         }
 

@@ -8,15 +8,19 @@
 #include <iostream>
 #include <random>
 #include <stdexcept>
+#include <cstdlib>
 
 namespace {
 std::random_device rd;
 std::mt19937 gen(rd());
 }
 
-void GeneratePointsOnly(const int points_count) {
+void GeneratePointsOnly(const int points_count, const int min_distance) {
     if (points_count <= 0) {
         throw std::runtime_error("points_count must be positive");
+    }
+    if (min_distance < -1) {
+        throw std::runtime_error("min_distance must be non-negative");
     }
 
     EnsureDataDir();
@@ -45,6 +49,13 @@ void GeneratePointsOnly(const int points_count) {
             if (field.Get(x1, y1) != '.' || field.Get(x2, y2) != '.') {
                 continue;
             }
+            if (min_distance >= 0) {
+                const int manhattan_distance =
+                    std::abs(x1 - x2) + std::abs(y1 - y2);
+                if (manhattan_distance < min_distance) {
+                    continue;
+                }
+            }
 
             out << x1 << " " << y1 << " " << x2 << " " << y2 << "\n";
             generated = true;
@@ -57,7 +68,11 @@ void GeneratePointsOnly(const int points_count) {
     }
 
     std::cout << "Generated data/points.txt with " << points_count
-              << " point pairs\n";
+              << " point pairs";
+    if (min_distance >= 0) {
+        std::cout << " (min Manhattan distance: " << min_distance << ")";
+    }
+    std::cout << "\n";
 }
 
 void GenerateDynamicChangesOnly(const int objects_per_step, const int steps) {
