@@ -29,7 +29,7 @@ std::optional<Result> Astar(
 
     std::priority_queue<Node, std::vector<Node>, std::greater<Node>> open_set;
 
-    int start_idx = start_pos.second * width + start_pos.first;
+    int start_idx = start_pos.first * width + start_pos.second;
     g_score[start_idx] = 0;
     open_set.push({start_pos.first, start_pos.second, heuristic_function(start_pos, goal_pos), 0});
 
@@ -40,7 +40,7 @@ std::optional<Result> Astar(
         Node current = open_set.top();
         open_set.pop();
 
-        int curr_idx = current.y * width + current.x;
+        int curr_idx = current.x * width + current.y;
 
         if (current.g > g_score[curr_idx]) continue;
 
@@ -50,7 +50,7 @@ std::optional<Result> Astar(
             std::vector<std::pair<int, int>> path;
             int p = curr_idx;
             while (p != -1) {
-                path.push_back({p % width, p / width});
+                path.push_back({p / width, p % width});
                 p = parent_idx[p];
             }
             std::reverse(path.begin(), path.end());
@@ -58,7 +58,7 @@ std::optional<Result> Astar(
         }
 
         for (auto [nx, ny] : field.GetNeighbours(current.x, current.y)) {
-            int next_idx = ny * width + nx;
+            int next_idx = nx * width + ny;
             int tentative_g = current.g + 1;
 
             if (tentative_g < g_score[next_idx]) {

@@ -5,6 +5,7 @@
 #include "DstarLite.h"
 #include "Field.h"
 #include "TestGeneration.h"
+#include "TestUtils.h"
 #include "heuristic_functions.h"
 
 #include <chrono>
@@ -17,48 +18,32 @@
 
 namespace {
 
+constexpr int kMaxSteps = 50'000;
+
 struct PathRunResult {
     int status;
     int steps;
 };
 
-struct RunStats {
-    int success = 0;
-    int no_path = 0;
-    int exceptions = 0;
-    double total_ms = 0.0;
-    double min_ms = std::numeric_limits<double>::infinity();
-    double max_ms = 0.0;
+struct RunStats : BaseRunStats {
+    int timeout = 0;
     int total_steps = 0;
     int min_steps = std::numeric_limits<int>::max();
     int max_steps = 0;
 
-    void Add(const std::string &status, const double ms, const int steps) {
-        if (status == "Path found") {
-            ++success;
-        } else if (status == "No path") {
-            ++no_path;
+    void Add(const std::string &status, double ms, int steps) {
+        if (status == "Timeout") {
+            ++timeout;
         } else {
-            ++exceptions;
+            RecordStatus(status);
         }
-
-        total_ms += ms;
+        RecordTiming(ms);
         total_steps += steps;
-        if (ms < min_ms) {
-            min_ms = ms;
-        }
-        if (ms > max_ms) {
-            max_ms = ms;
-        }
-        if (steps < min_steps) {
-            min_steps = steps;
-        }
-        if (steps > max_steps) {
-            max_steps = steps;
-        }
+        if (steps < min_steps) min_steps = steps;
+        if (steps > max_steps) max_steps = steps;
     }
 
-    int TotalRuns() const { return success + no_path + exceptions; }
+    int TotalRuns() const { return BaseRunStats::TotalRuns() + timeout; }
 };
 
 void PrintStats(const std::string &label, const RunStats &stats) {
@@ -74,6 +59,7 @@ void PrintStats(const std::string &label, const RunStats &stats) {
     std::cout << std::left << std::setw(14) << label << " | "
               << "ok=" << std::setw(4) << stats.success << " "
               << "no_path=" << std::setw(4) << stats.no_path << " "
+              << "timeout=" << std::setw(4) << stats.timeout << " "
               << "exceptions=" << std::setw(4) << stats.exceptions << " "
               << std::fixed << std::setprecision(3)
               << "avg=" << std::setw(9) << avg_ms << "ms "
@@ -85,22 +71,36 @@ void PrintStats(const std::string &label, const RunStats &stats) {
 }
 
 PathRunResult TestDynamicAstar(Field field, int x1, int y1, int x2, int y2,
-                               const Changes &changes) {
+                               const Changes &changes,
+                               const AstarDynamicReplanMode astar_mode) {
     Coordinates current_pos = {x1, y1};
     Coordinates end_p = {x2, y2};
     int change_step = 0;
     int movement_steps = 0;
 
     while (current_pos != end_p) {
+        if (movement_steps >= kMaxSteps) {
+            return {-2, movement_steps};
+        }
+
+        std::optional<Result> result;
+
         if (change_step < static_cast<int>(changes.size())) {
             for (const auto &change : changes[change_step]) {
                 field.Set(change.first.first, change.first.second, '.');
                 field.Set(change.second.first, change.second.second, 'D');
+
+                if (astar_mode == AstarDynamicReplanMode::PerChange) {
+                    result = Astar(current_pos, end_p, field, ManhattanDistance);
+                }
             }
             ++change_step;
         }
 
-        auto result = Astar(current_pos, end_p, field, ManhattanDistance);
+        if (!result.has_value()) {
+            result = Astar(current_pos, end_p, field, ManhattanDistance);
+        }
+
         if (!result.has_value() || result->path.size() < 2) {
             return {-1, movement_steps};
         }
@@ -123,6 +123,10 @@ PathRunResult TestDynamicDstarLite(Field field, int x1, int y1, int x2, int y2,
     int change_step = 0;
     int movement_steps = 0;
     while (current_pos != end_p) {
+        if (movement_steps >= kMaxSteps) {
+            return {-2, movement_steps};
+        }
+
         bool has_map_updates = false;
         if (change_step < static_cast<int>(changes.size())) {
             std::vector<std::pair<Coordinates, char>> updates;
@@ -161,7 +165,7 @@ PathRunResult TestDynamicDstarLite(Field field, int x1, int y1, int x2, int y2,
 
 } // namespace
 
-void DynamicTests() {
+void DynamicTests(const AstarDynamicReplanMode astar_mode) {
     Field field(GetMapPath());
     ChangesHeader header = LoadChangesHeaderFromFile(GetChangesPath());
     Changes changes = LoadChangesFromFile(GetChangesPath());
@@ -204,11 +208,14 @@ void DynamicTests() {
         try {
 
             // For every new point pair, obstacle updates are replayed from step 0.
-            PathRunResult result = TestDynamicAstar(field, x1, y1, x2, y2, changes);
+            PathRunResult result =
+                TestDynamicAstar(field, x1, y1, x2, y2, changes, astar_mode);
             a_steps = result.steps;
 
             if (result.status == -1) {
                 a_status = "No path";
+            } else if (result.status == -2) {
+                a_status = "Timeout";
             }
         } catch (const std::exception &e) {
             a_status = "Exception";
@@ -231,6 +238,8 @@ void DynamicTests() {
 
             if (result.status == -1) {
                 d_status = "No path";
+            } else if (result.status == -2) {
+                d_status = "Timeout";
             }
         } catch (const std::exception &e) {
             d_status = "Exception";

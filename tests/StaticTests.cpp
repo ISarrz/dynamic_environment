@@ -4,6 +4,7 @@
 #include "Astar.h"
 #include "DstarLite.h"
 #include "Field.h"
+#include "TestUtils.h"
 #include "heuristic_functions.h"
 
 #include <chrono>
@@ -17,49 +18,24 @@
 
 namespace {
 
-struct RunStats {
-    int success = 0;
-    int no_path = 0;
-    int exceptions = 0;
-    double total_ms = 0.0;
-    double min_ms = std::numeric_limits<double>::infinity();
-    double max_ms = 0.0;
+struct RunStats : BaseRunStats {
     long long total_path_len = 0;
     int min_path_len = std::numeric_limits<int>::max();
     int max_path_len = 0;
     int path_len_samples = 0;
 
-    void Add(const std::string &status, const double ms,
-             const std::optional<int> path_len) {
-        if (status == "Path found") {
-            ++success;
-        } else if (status == "No path") {
-            ++no_path;
-        } else {
-            ++exceptions;
-        }
-
-        total_ms += ms;
-        if (ms < min_ms) {
-            min_ms = ms;
-        }
-        if (ms > max_ms) {
-            max_ms = ms;
-        }
+    void Add(const std::string &status, double ms,
+             std::optional<int> path_len) {
+        RecordStatus(status);
+        RecordTiming(ms);
 
         if (path_len.has_value()) {
             ++path_len_samples;
             total_path_len += *path_len;
-            if (*path_len < min_path_len) {
-                min_path_len = *path_len;
-            }
-            if (*path_len > max_path_len) {
-                max_path_len = *path_len;
-            }
+            if (*path_len < min_path_len) min_path_len = *path_len;
+            if (*path_len > max_path_len) max_path_len = *path_len;
         }
     }
-
-    int TotalRuns() const { return success + no_path + exceptions; }
 };
 
 void PrintStats(const std::string &label, const RunStats &stats) {

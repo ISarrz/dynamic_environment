@@ -1,6 +1,8 @@
 #include "CliUtils.h"
 #include "DynamicTests.h"
 #include "Generators.h"
+#include "LocalDynamicTests.h"
+#include "LocalStaticTests.h"
 #include "StaticTests.h"
 #include <iostream>
 #include <stdexcept>
@@ -19,12 +21,21 @@ int ParseNonNegativeInt(const std::string &value, const std::string &arg_name) {
     }
     return parsed;
 }
+
+AstarDynamicReplanMode ParseAstarDynamicMode(const std::string &mode) {
+    if (mode == "step") {
+        return AstarDynamicReplanMode::PerStep;
+    }
+    if (mode == "change") {
+        return AstarDynamicReplanMode::PerChange;
+    }
+    throw std::runtime_error(
+        "Invalid A* mode: " + mode +
+        ". Expected one of: step, change");
+}
 }
 
 int main(int argc, char **argv) {
-    // Changes changes = LoadChangesFromFile("changes.txt");
-    // GetDynamicChanges(2000, 10);
-    // GetStaticTest();
     const int default_objects_per_step = 10;
     try {
         // Modes:
@@ -34,8 +45,11 @@ int main(int argc, char **argv) {
         //                                  -> generate points.txt
         //   ./dynamic_environment generate-points [count] [min_distance]
         //                                  -> only generate points.txt
-        //   ./dynamic_environment test dynamic -> run dynamic test using existing changes.txt
-        //   ./dynamic_environment test static  -> run static tests from points.txt
+        //   ./dynamic_environment test dynamic [step|change]
+        //                                  -> run dynamic test using existing changes.txt
+        //   ./dynamic_environment test static      -> run static tests from points.txt
+        //   ./dynamic_environment test local-static  -> run MPPI/RMPPI static tests
+        //   ./dynamic_environment test local-dynamic -> run MPPI/RMPPI dynamic tests
         if (argc > 1) {
             std::string mode = argv[1];
             if (mode == "generate") {
@@ -75,21 +89,48 @@ int main(int argc, char **argv) {
                 return 0;
             }
             if (mode == "test") {
-                if (argc != 3) {
-                    std::cerr << "Usage: ./dynamic_environment test [dynamic|static]\n";
+                if (argc < 3 || argc > 4) {
+                    std::cerr
+                        << "Usage: ./dynamic_environment test [dynamic|static] [astar_mode]\n"
+                        << "astar_mode for dynamic test: step|change (default: step)\n";
                     return 1;
                 }
                 std::string test_mode = argv[2];
                 if (test_mode == "dynamic") {
-                    DynamicTests();
+                    AstarDynamicReplanMode astar_mode =
+                        AstarDynamicReplanMode::PerStep;
+                    if (argc == 4) {
+                        astar_mode = ParseAstarDynamicMode(argv[3]);
+                    }
+                    DynamicTests(astar_mode);
                     return 0;
                 }
                 if (test_mode == "static") {
+                    if (argc == 4) {
+                        std::cerr << "A* mode is only supported for dynamic test\n";
+                        return 1;
+                    }
                     GetStaticTest();
                     return 0;
                 }
+                if (test_mode == "local-static") {
+                    if (argc == 4) {
+                        std::cerr << "No extra argument for local-static test\n";
+                        return 1;
+                    }
+                    GetLocalStaticTest();
+                    return 0;
+                }
+                if (test_mode == "local-dynamic") {
+                    if (argc == 4) {
+                        std::cerr << "No extra argument for local-dynamic test\n";
+                        return 1;
+                    }
+                    LocalDynamicTests();
+                    return 0;
+                }
                 std::cerr << "Unknown test mode: " << test_mode << "\n"
-                          << "Usage: ./dynamic_environment test [dynamic|static]\n";
+                          << "Usage: ./dynamic_environment test [dynamic|static|local-static|local-dynamic] [astar_mode]\n";
                 return 1;
             }
             std::cerr << "Unknown mode: " << mode << "\n"
@@ -101,7 +142,8 @@ int main(int argc, char **argv) {
         std::cout << "  ./dynamic_environment generate [steps] [objects_per_step]\n";
         std::cout
             << "  ./dynamic_environment generate-points [count] [min_distance]\n";
-        std::cout << "  ./dynamic_environment test [dynamic|static]\n";
+        std::cout << "  ./dynamic_environment test [dynamic|static] [astar_mode]\n";
+        std::cout << "    astar_mode for dynamic test: step|change (default: step)\n";
         std::cout << "Run 'generate' and 'generate-points' before tests.\n";
     } catch (const std::exception &e) {
         std::cerr << "Runtime error: " << e.what() << "\n";

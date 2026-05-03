@@ -1,3 +1,9 @@
 #pragma once
 
-void DynamicTests();
+enum class AstarDynamicReplanMode {
+    PerStep,
+    PerChange
+};
+
+void DynamicTests(AstarDynamicReplanMode astar_mode =
+                      AstarDynamicReplanMode::PerStep);
